@@ -1,0 +1,31 @@
+{
+  "name": "serverless-cloudfront-distribution",
+  "version": "0.0.0",
+  "description": "Plugin to create certificate for a domain and associate it with cloudfront distribution",
+  "main": "index.ts",
+  "dependencies": {
+    "aws-sdk": "^2.407.0"
+  },
+  "devDependencies": {
+    "@types/node": "^11.9.4",
+    "prettier-tslint": "^0.4.2",
+    "ts-node": "^8.0.2",
+    "tslint": "^5.12.1",
+    "tslint-microsoft-contrib": "^6.1.0-beta",
+    "typescript": "^3.3.3"
+  },
+  "scripts": {
+    "lint": "tslint --project .",
+    "build": "tsc --project ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pfulop/serverless-cloudfront-distribution-certificate.git"
+  },
+  "author": "Pavol Fulop",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/pfulop/serverless-cloudfront-distribution/issues"
+  },
+  "homepage": "https://github.com/pfulop/serverless-cloudfront-distribution#readme"
+}
