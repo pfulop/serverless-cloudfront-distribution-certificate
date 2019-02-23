@@ -1,12 +1,10 @@
-# serverless-cloudfront-distribution
+# serverless-cloudfront-distribution-certificate
 
 This serverless plugin manages to create certificate for specified cloudfront distribution. It also handles validation trough dns and ROUTE 53.
 
-![NPM](https://img.shields.io/npm/l/serverless-cloudfront-distribution.svg)
-
-![npm](<https://img.shields.io/npm/v/![NPM](https://img.shields.io/npm/l/serverless-cloudfront-distribution.svg).svg>)
-
-![node](<https://img.shields.io/node/v/![npm](https://img.shields.io/npm/v/![NPM](https://img.shields.io/npm/l/serverless-cloudfront-distribution.svg).svg).svg>)
+[![serverless](http://public.serverless.com/badges/v3.svg)](http://www.serverless.com)
+[![npm version](https://badge.fury.io/js/serverless-cloudfront-distribution-certificate.svg)](https://badge.fury.io/js/erverless-cloudfront-distribution-certificate)
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/pfulop/serverless-cloudfront-distribution-certificate/master/LICENSE)
 
 ## Usage
 
