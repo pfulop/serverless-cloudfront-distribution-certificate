@@ -11,7 +11,7 @@ This serverless plugin manages to create certificate for specified cloudfront di
 ### instalation
 
 ```bash
-npm i serverless-cloudfront-distribution --save-dev
+npm i serverless-cloudfront-distribution-certificate --save-dev
 ```
 
 ### then in your serverless config
