@@ -177,12 +177,6 @@ class ServerlessCloudfrontDistributionCertificate {
     const template = this.serverless.service.provider
       .compiledCloudFormationTemplate;
 
-    this.serverless.cli.log(
-      JSON.stringify(
-        template.Resources[this.cloudFront].Properties.DistributionConfig
-          .ViewerCertificate,
-      ),
-    );
     template.Resources[
       this.cloudFront
     ].Properties.DistributionConfig.ViewerCertificate = {
