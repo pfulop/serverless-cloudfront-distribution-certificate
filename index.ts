@@ -47,8 +47,6 @@ class ServerlessCloudfrontDistributionCertificate {
       .describeCertificate({ CertificateArn: this.cerArn })
       .promise();
 
-    // this.serverless.cli.log(certificate.Certificate.Status);
-
     if (certificate.Certificate.Status === "ISSUED") {
       this.serverless.cli.log(`Certificate has been validated before`);
       return;
@@ -118,9 +116,6 @@ class ServerlessCloudfrontDistributionCertificate {
         domainNameReverse.length === 1 ||
         domainNameReverse.length >= hostedZoneNameReverse.length
       ) {
-        this.serverless.cli.log(
-          "" + hostedZoneNameReverse.some((n, i) => n !== domainNameReverse[i]),
-        );
         return !hostedZoneNameReverse.some(
           (n, i) => n !== domainNameReverse[i],
         );
