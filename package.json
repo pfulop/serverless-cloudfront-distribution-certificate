@@ -1,8 +1,8 @@
 {
-  "name": "serverless-cloudfront-distribution",
+  "name": "serverless-cloudfront-distribution-certificate",
   "version": "0.0.0",
   "description": "Plugin to create certificate for a domain and associate it with cloudfront distribution",
-  "main": "index.ts",
+  "main": "dist/index.js",
   "dependencies": {
     "aws-sdk": "^2.407.0"
   },

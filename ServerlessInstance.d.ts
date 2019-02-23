@@ -7,7 +7,7 @@ export interface ServerlessInstance {
       stage: string;
       stackName: string;
       compiledCloudFormationTemplate: {
-        Outputs: any;
+        Resources: any;
       };
       apiGateway: {
         restApiId: string;
@@ -16,6 +16,7 @@ export interface ServerlessInstance {
     custom: {
       cfdDomain: {
         domainName: string;
+        cloudFront: string;
       };
     };
   };

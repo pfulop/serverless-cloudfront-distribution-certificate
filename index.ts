@@ -15,6 +15,7 @@ class ServerlessCloudfrontDistributionCertificate {
   private cerArn: Arn;
   private acm: aws.ACM;
   private route53: aws.Route53;
+  private cloudFront: string;
 
   private hooks: IHooks;
 
@@ -23,52 +24,22 @@ class ServerlessCloudfrontDistributionCertificate {
     this.options = options;
 
     this.hooks = {
-      "aws:package:finalize:mergeCustomProviderResources": this.assignCert,
+      "aws:package:finalize:mergeCustomProviderResources": this.assignCert.bind(
+        this,
+      ),
     };
-
-    this.domain = serverless.service.custom.cfdDomain.domainName;
   }
 
-  // public initializeVariables() {
-  //   const credentials = this.serverless.providers.aws.getCredentials();
-
-  //   this.givenDomainName = this.serverless.service.custom.customDomain.domainName;
-  //   this.hostedZonePrivate = this.serverless.service.custom.customDomain.hostedZonePrivate;
-  //   let basePath = this.serverless.service.custom.customDomain.basePath;
-  //   if (basePath == null || basePath.trim() === "") {
-  //     basePath = "(none)";
-  //   }
-  //   this.basePath = basePath;
-  //   let stage = this.serverless.service.custom.customDomain.stage;
-  //   if (typeof stage === "undefined") {
-  //     stage = this.options.stage || this.serverless.service.provider.stage;
-  //   }
-  //   this.stage = stage;
-
-  //   const endpointTypeWithDefault =
-  //     this.serverless.service.custom.customDomain.endpointType ||
-  //     endpointTypes.edge;
-  //   const endpointTypeToUse =
-  //     endpointTypes[endpointTypeWithDefault.toLowerCase()];
-  //   if (!endpointTypeToUse) {
-  //     throw new Error(
-  //       `${endpointTypeWithDefault} is not supported endpointType, use edge or regional.`,
-  //     );
-  //   }
-  //   this.endpointType = endpointTypeToUse;
-
-  //   this.acmRegion =
-  //     this.endpointType === endpointTypes.regional
-  //       ? this.serverless.providers.aws.getRegion()
-  //       : "us-east-1";
-  //   const acmCredentials = Object.assign({}, credentials, {
-  //     region: this.acmRegion,
-  //   });
-  //   this.acm = new this.serverless.providers.aws.sdk.ACM(acmCredentials);
-  // }
-
-  private assignCert() {
-    this.createCert();
+  private async assignCert() {
+    this.domain = this.serverless.service.custom.cfdDomain.domainName;
+    this.cloudFront = this.serverless.service.custom.cfdDomain.cloudFront;
+    await this.createCert();
+    if (!this.cerArn) {
+      throw new Error("Something went wrong");
+    } else {
+      await this.checkAndCreateRoute53Entry();
+    }
+    this.modifyCloudformation();
   }
 
   private async checkAndCreateRoute53Entry() {
@@ -76,6 +47,12 @@ class ServerlessCloudfrontDistributionCertificate {
       .describeCertificate({ CertificateArn: this.cerArn })
       .promise();
 
+    // this.serverless.cli.log(certificate.Certificate.Status);
+
+    if (certificate.Certificate.Status === "ISSUED") {
+      this.serverless.cli.log(`Certificate has been validated before`);
+      return;
+    }
     if (certificate.Certificate.Status !== "PENDING_VALIDATION") {
       this.serverless.cli.log(`Certificate cannot be validated`);
       return;
@@ -89,7 +66,7 @@ class ServerlessCloudfrontDistributionCertificate {
     const credentials = this.serverless.providers.aws.getCredentials();
     this.route53 = new this.serverless.providers.aws.sdk.Route53(credentials);
 
-    await validations.forEach(async (validation) => {
+    const validationPromises = validations.map(async (validation) => {
       this.serverless.cli.log(`Validating certificate`);
       const hostedZone = await this.findHostedZoneId(
         validation.ResourceRecord.Name,
@@ -110,6 +87,7 @@ class ServerlessCloudfrontDistributionCertificate {
                     Value: validation.ResourceRecord.Value,
                   },
                 ],
+                TTL: 60,
                 Type: validation.ResourceRecord.Type,
               },
             },
@@ -120,13 +98,18 @@ class ServerlessCloudfrontDistributionCertificate {
         HostedZoneId: hostedZone.Id,
       };
       await this.route53.changeResourceRecordSets(params).promise();
+      this.serverless.cli.log("Created resource recordset");
     });
+    await Promise.all(validationPromises);
   }
 
   private async findHostedZoneId(domain: string) {
     this.serverless.cli.log(`Getting hosted zone id`);
     const zones = await this.route53.listHostedZones({}).promise();
-    const domainNameReverse = domain.split(".").reverse();
+    const domainNameReverse = domain
+      .replace(/\.$/, "")
+      .split(".")
+      .reverse();
     const targetHostedZone = zones.HostedZones.filter((hostedZone) => {
       const zoneName = hostedZone.Name.replace(/\.$/, "");
       const hostedZoneNameReverse = zoneName.split(".").reverse();
@@ -135,6 +118,9 @@ class ServerlessCloudfrontDistributionCertificate {
         domainNameReverse.length === 1 ||
         domainNameReverse.length >= hostedZoneNameReverse.length
       ) {
+        this.serverless.cli.log(
+          "" + hostedZoneNameReverse.some((n, i) => n !== domainNameReverse[i]),
+        );
         return !hostedZoneNameReverse.some(
           (n, i) => n !== domainNameReverse[i],
         );
@@ -167,6 +153,7 @@ class ServerlessCloudfrontDistributionCertificate {
       this.serverless.cli.log(`Found existing certificate`);
       this.cerArn = certificate.CertificateArn;
     } else {
+      this.serverless.cli.log("requesting certificate");
       const cerArn = await this.acm
         .requestCertificate({
           DomainName: this.domain,
@@ -179,17 +166,30 @@ class ServerlessCloudfrontDistributionCertificate {
           ValidationMethod: "DNS",
         })
         .promise();
-      if (typeof cerArn === "string") {
+      if (cerArn.CertificateArn) {
         this.serverless.cli.log(`Certificate created`);
-        this.cerArn = cerArn;
+        this.cerArn = cerArn.CertificateArn;
       }
     }
-    if (!this.cerArn) {
-      throw new Error("Something went wrong");
-    } else {
-      await this.checkAndCreateRoute53Entry();
-    }
+  }
+
+  private modifyCloudformation() {
+    const template = this.serverless.service.provider
+      .compiledCloudFormationTemplate;
+
+    this.serverless.cli.log(
+      JSON.stringify(
+        template.Resources[this.cloudFront].Properties.DistributionConfig
+          .ViewerCertificate,
+      ),
+    );
+    template.Resources[
+      this.cloudFront
+    ].Properties.DistributionConfig.ViewerCertificate = {
+      AcmCertificateArn: this.cerArn,
+      SslSupportMethod: "sni-only",
+    };
   }
 }
 
-export { ServerlessCloudfrontDistributionCertificate };
+export = ServerlessCloudfrontDistributionCertificate;
