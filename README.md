@@ -27,3 +27,7 @@ custom:
 ```
 
 Where `domainName` is the domain for which ssl certificate should be generated and `cloudFront` is the logical name of your CloudFront distribution.
+
+## Note
+
+_To use an ACM Certificate with CloudFront, you must request the certificate in the US East (N. Virginia) region. ACM Certificates in this region that are associated with a CloudFront distribution are distributed to all the geographic locations configured for that distribution._
