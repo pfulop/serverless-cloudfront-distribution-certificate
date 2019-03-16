@@ -15,7 +15,7 @@ export interface ServerlessInstance {
     };
     custom: {
       cfdDomain: {
-        domainName: string;
+        domainName: string | string[];
         cloudFront: string;
       };
     };

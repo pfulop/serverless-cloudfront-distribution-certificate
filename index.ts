@@ -11,8 +11,8 @@ interface IHooks {
 class ServerlessCloudfrontDistributionCertificate {
   private serverless: ServerlessInstance;
   private options: ServerlessOptions;
-  private domain: string;
-  private cerArn: Arn;
+  private domains: string[];
+  private cerArns: Arn[] = [];
   private acm: aws.ACM;
   private route53: aws.Route53;
   private cloudFront: string;
@@ -31,20 +31,29 @@ class ServerlessCloudfrontDistributionCertificate {
   }
 
   private async assignCert() {
-    this.domain = this.serverless.service.custom.cfdDomain.domainName;
+    if (Array.isArray(this.serverless.service.custom.cfdDomain.domainName)) {
+      this.domains = this.serverless.service.custom.cfdDomain.domainName;
+    } else {
+      this.domains = [this.serverless.service.custom.cfdDomain.domainName];
+    }
+
     this.cloudFront = this.serverless.service.custom.cfdDomain.cloudFront;
-    await this.createCert();
-    if (!this.cerArn) {
+
+    await this.domains.forEach(async (domain) => await this.createCert(domain));
+
+    if (this.cerArns.length !== this.domains.length) {
       throw new Error("Something went wrong");
     } else {
-      await this.checkAndCreateRoute53Entry();
+      await this.cerArns.forEach(
+        async (cerArn) => await this.checkAndCreateRoute53Entry(cerArn),
+      );
     }
     this.modifyCloudformation();
   }
 
-  private async checkAndCreateRoute53Entry() {
+  private async checkAndCreateRoute53Entry(cerArn) {
     const certificate = await this.acm
-      .describeCertificate({ CertificateArn: this.cerArn })
+      .describeCertificate({ CertificateArn: cerArn })
       .promise();
 
     if (certificate.Certificate.Status === "ISSUED") {
@@ -128,13 +137,15 @@ class ServerlessCloudfrontDistributionCertificate {
     return targetHostedZone;
   }
 
-  private async createCert() {
-    if (!this.domain) {
+  private async createCert(domain) {
+    if (!this.domains || this.domains.length < 1) {
       this.serverless.cli.log(`No domain specified skipping`);
       return;
     }
     const credentials = this.serverless.providers.aws.getCredentials();
-    const acmCredentials = Object.assign({}, credentials, { region: 'us-east-1' });
+    const acmCredentials = Object.assign({}, credentials, {
+      region: "us-east-1",
+    });
     this.acm = new this.serverless.providers.aws.sdk.ACM(acmCredentials);
     const statuses = ["PENDING_VALIDATION", "ISSUED", "INACTIVE"];
     const certData = await this.acm
@@ -142,12 +153,12 @@ class ServerlessCloudfrontDistributionCertificate {
       .promise();
 
     const certificate = certData.CertificateSummaryList.find(
-      (cer) => cer.DomainName === this.domain,
+      (cer) => cer.DomainName === domain,
     );
 
     if (certificate) {
       this.serverless.cli.log(`Found existing certificate`);
-      this.cerArn = certificate.CertificateArn;
+      this.cerArns.push(certificate.CertificateArn);
     } else {
       this.serverless.cli.log("requesting certificate");
       const cerArn = await this.acm
@@ -164,7 +175,7 @@ class ServerlessCloudfrontDistributionCertificate {
         .promise();
       if (cerArn.CertificateArn) {
         this.serverless.cli.log(`Certificate created`);
-        this.cerArn = cerArn.CertificateArn;
+        this.cerArns.push(cerArn.CertificateArn);
       }
     }
   }
