@@ -1,6 +1,6 @@
 # serverless-cloudfront-distribution-certificate
 
-This serverless plugin manages to create certificate for specified cloudfront distribution. It also handles validation trough dns and ROUTE 53.
+This serverless plugin manages to create certificate for specified CloudFront distribution. It also handles validation trough dns and ROUTE 53.
 
 [![serverless](http://public.serverless.com/badges/v3.svg)](http://www.serverless.com)
 [![npm version](https://badge.fury.io/js/serverless-cloudfront-distribution-certificate.svg)](https://badge.fury.io/js/erverless-cloudfront-distribution-certificate)
@@ -8,13 +8,13 @@ This serverless plugin manages to create certificate for specified cloudfront di
 
 ## Usage
 
-### instalation
+### Installation
 
 ```bash
-npm i serverless-cloudfront-distribution-certificate --save-dev
+npm install serverless-cloudfront-distribution-certificate --save-dev
 ```
 
-### then in your serverless config
+### Configuration
 
 ```yaml
 plugins:
@@ -22,8 +22,12 @@ plugins:
 
 custom:
   cfdDomain:
-    domainName: "best.example.ever"
-    cloudFront: WebsiteDistribution
+    domainName: "serverless.example.com"
+    cloudFront: CloudFrontDistribution
 ```
 
-Where domainName is the domain for which ssl certificate should be generated and cloudFront is the logical name of your cloudfront distribution.
+Where `domainName` is the domain for which ssl certificate should be generated and `cloudFront` is the logical name of your CloudFront distribution.
+
+## Note
+
+_To use an ACM Certificate with CloudFront, you must request the certificate in the US East (N. Virginia) region. ACM Certificates in this region that are associated with a CloudFront distribution are distributed to all the geographic locations configured for that distribution._

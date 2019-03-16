@@ -134,7 +134,8 @@ class ServerlessCloudfrontDistributionCertificate {
       return;
     }
     const credentials = this.serverless.providers.aws.getCredentials();
-    this.acm = new this.serverless.providers.aws.sdk.ACM(credentials);
+    const acmCredentials = Object.assign({}, credentials, { region: 'us-east-1' });
+    this.acm = new this.serverless.providers.aws.sdk.ACM(acmCredentials);
     const statuses = ["PENDING_VALIDATION", "ISSUED", "INACTIVE"];
     const certData = await this.acm
       .listCertificates({ CertificateStatuses: statuses })
