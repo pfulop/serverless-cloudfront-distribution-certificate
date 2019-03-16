@@ -11,17 +11,22 @@ interface IHooks {
 class ServerlessCloudfrontDistributionCertificate {
   private serverless: ServerlessInstance;
   private options: ServerlessOptions;
-  private domain: string;
+  private domains: string[];
   private cerArn: Arn;
   private acm: aws.ACM;
   private route53: aws.Route53;
   private cloudFront: string;
+  private validationChecks: number = 15;
 
   private hooks: IHooks;
 
   constructor(serverless: ServerlessInstance, options: ServerlessOptions) {
     this.serverless = serverless;
     this.options = options;
+
+    this.waitForCertificateToBecomeValid = this.waitForCertificateToBecomeValid.bind(
+      this,
+    );
 
     this.hooks = {
       "aws:package:finalize:mergeCustomProviderResources": this.assignCert.bind(
@@ -31,15 +36,44 @@ class ServerlessCloudfrontDistributionCertificate {
   }
 
   private async assignCert() {
-    this.domain = this.serverless.service.custom.cfdDomain.domainName;
+    if (Array.isArray(this.serverless.service.custom.cfdDomain.domainNames)) {
+      this.serverless.cli.log(`Multiple domains specified`);
+      this.domains = this.serverless.service.custom.cfdDomain.domainNames;
+    } else {
+      this.domains = [this.serverless.service.custom.cfdDomain.domainName];
+    }
+
     this.cloudFront = this.serverless.service.custom.cfdDomain.cloudFront;
+
     await this.createCert();
+
     if (!this.cerArn) {
       throw new Error("Something went wrong");
     } else {
       await this.checkAndCreateRoute53Entry();
     }
     this.modifyCloudformation();
+    await this.waitForCertificateToBecomeValid();
+  }
+
+  private async waitForCertificateToBecomeValid() {
+    const cert = await this.acm
+      .describeCertificate({ CertificateArn: this.cerArn })
+      .promise();
+    this.serverless.cli.log(cert.Certificate.Status);
+
+    if (
+      cert.Certificate.Status === "PENDING_VALIDATION" &&
+      this.validationChecks > 0
+    ) {
+      this.validationChecks -= 1;
+      const wait = new Promise((r) => setTimeout(r, 60000));
+      await wait.then(this.waitForCertificateToBecomeValid);
+    } else if (cert.Certificate.Status === "ISSUED") {
+      this.serverless.cli.log(`Certificate is valid`);
+    } else {
+      throw new Error("Certificate is not valid after 15 minutes.");
+    }
   }
 
   private async checkAndCreateRoute53Entry() {
@@ -52,7 +86,6 @@ class ServerlessCloudfrontDistributionCertificate {
       return;
     }
     if (certificate.Certificate.Status !== "PENDING_VALIDATION") {
-      this.serverless.cli.log(`Certificate cannot be validated`);
       return;
     }
 
@@ -129,36 +162,67 @@ class ServerlessCloudfrontDistributionCertificate {
   }
 
   private async createCert() {
-    if (!this.domain) {
+    if (!this.domains || this.domains.length < 1) {
       this.serverless.cli.log(`No domain specified skipping`);
       return;
     }
     const credentials = this.serverless.providers.aws.getCredentials();
-    const acmCredentials = Object.assign({}, credentials, { region: 'us-east-1' });
+    const acmCredentials = Object.assign({}, credentials, {
+      region: "us-east-1",
+    });
     this.acm = new this.serverless.providers.aws.sdk.ACM(acmCredentials);
     const statuses = ["PENDING_VALIDATION", "ISSUED", "INACTIVE"];
     const certData = await this.acm
       .listCertificates({ CertificateStatuses: statuses })
       .promise();
 
-    const certificate = certData.CertificateSummaryList.find(
-      (cer) => cer.DomainName === this.domain,
+    const domain = this.domains[0];
+    const alternativeNames = this.domains.slice(1);
+
+    const certificates = certData.CertificateSummaryList.filter(
+      (cer) => cer.DomainName === domain,
     );
 
+    let certificate = null;
+
+    if (certificates.length > 0) {
+      const certificateDetailPromises = certificates.map((currentCertificate) =>
+        this.acm
+          .describeCertificate({
+            CertificateArn: currentCertificate.CertificateArn,
+          })
+          .promise(),
+      );
+      const certificateDetails = await Promise.all(certificateDetailPromises);
+      certificate = certificateDetails.find((certificateDetail) => {
+        const aleternativeNamesSet = new Set(
+          certificateDetail.Certificate.SubjectAlternativeNames,
+        );
+        this.serverless.cli.log(
+          `Checking: ${certificateDetail.Certificate.DomainName}`,
+        );
+
+        return !alternativeNames.some((aN) => !aleternativeNamesSet.has(aN));
+      });
+    }
+
     if (certificate) {
-      this.serverless.cli.log(`Found existing certificate`);
-      this.cerArn = certificate.CertificateArn;
+      this.serverless.cli.log(
+        `Found existing certificate: ${certificate.Certificate.CertificateArn}`,
+      );
+      this.cerArn = certificate.Certificate.CertificateArn;
     } else {
       this.serverless.cli.log("requesting certificate");
       const cerArn = await this.acm
         .requestCertificate({
-          DomainName: this.domain,
+          DomainName: domain,
           DomainValidationOptions: [
             {
-              DomainName: this.domain,
-              ValidationDomain: this.domain,
+              DomainName: domain,
+              ValidationDomain: domain,
             },
           ],
+          SubjectAlternativeNames: alternativeNames,
           ValidationMethod: "DNS",
         })
         .promise();

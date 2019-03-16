@@ -22,12 +22,17 @@ plugins:
 
 custom:
   cfdDomain:
-    domainName: "serverless.example.com"
+    domainNames:
+      - "serverless.example.com"
+      - "server.example.com"
+      - "doggo.example.com"
     cloudFront: CloudFrontDistribution
 ```
 
-Where `domainName` is the domain for which ssl certificate should be generated and `cloudFront` is the logical name of your CloudFront distribution.
+Where `domainNames` are domains for which ssl certificate should be generated and `cloudFront` is the logical name of your CloudFront distribution.
 
 ## Note
 
 _To use an ACM Certificate with CloudFront, you must request the certificate in the US East (N. Virginia) region. ACM Certificates in this region that are associated with a CloudFront distribution are distributed to all the geographic locations configured for that distribution._
+
+_This plugin will wait up to 15 minutes for certificate to be issued. If the state won't be issued within 15 minutes, it will fail._
