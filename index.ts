@@ -195,14 +195,14 @@ class ServerlessCloudfrontDistributionCertificate {
       );
       const certificateDetails = await Promise.all(certificateDetailPromises);
       certificate = certificateDetails.find((certificateDetail) => {
-        const aleternativeNamesSet = new Set(
+        const alternativeNamesSet = new Set(
           certificateDetail.Certificate.SubjectAlternativeNames,
         );
         this.serverless.cli.log(
           `Checking: ${certificateDetail.Certificate.DomainName}`,
         );
 
-        return !alternativeNames.some((aN) => !aleternativeNamesSet.has(aN));
+        return !alternativeNames.some((aN) => !alternativeNamesSet.has(aN));
       });
     }
 
