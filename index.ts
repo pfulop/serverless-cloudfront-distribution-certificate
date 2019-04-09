@@ -213,19 +213,21 @@ class ServerlessCloudfrontDistributionCertificate {
       this.cerArn = certificate.Certificate.CertificateArn;
     } else {
       this.serverless.cli.log("requesting certificate");
-      const cerArn = await this.acm
-        .requestCertificate({
-          DomainName: domain,
-          DomainValidationOptions: [
-            {
-              DomainName: domain,
-              ValidationDomain: domain,
-            },
-          ],
-          SubjectAlternativeNames: alternativeNames,
-          ValidationMethod: "DNS",
-        })
-        .promise();
+      const certParams = {
+        DomainName: domain,
+        DomainValidationOptions: [
+          {
+            DomainName: domain,
+            ValidationDomain: domain,
+          },
+        ],
+        SubjectAlternativeNames: alternativeNames,
+        ValidationMethod: "DNS",
+      };
+      if (alternativeNames.length < 1) {
+        delete certParams.SubjectAlternativeNames;
+      }
+      const cerArn = await this.acm.requestCertificate(certParams).promise();
       if (cerArn.CertificateArn) {
         this.serverless.cli.log(`Certificate created`);
         this.cerArn = cerArn.CertificateArn;
