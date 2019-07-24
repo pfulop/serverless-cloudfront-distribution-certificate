@@ -76,23 +76,41 @@ class ServerlessCloudfrontDistributionCertificate {
     }
   }
 
+  private delay(ms: number) {
+      return new Promise( (resolve) => setTimeout(resolve, ms) );
+  }
+
   private async checkAndCreateRoute53Entry() {
-    const certificate = await this.acm
-      .describeCertificate({ CertificateArn: this.cerArn })
-      .promise();
+    let validations = [];
+    let tries = 0;
+    do {
+      await this.delay(2000);
+      this.serverless.cli.log(`Looking for validation resource records...`);
+      const certificate = await this.acm
+        .describeCertificate({ CertificateArn: this.cerArn })
+        .promise();
 
-    if (certificate.Certificate.Status === "ISSUED") {
-      this.serverless.cli.log(`Certificate has been validated before`);
-      return;
-    }
-    if (certificate.Certificate.Status !== "PENDING_VALIDATION") {
-      return;
-    }
+      if (certificate.Certificate.Status === "ISSUED") {
+        this.serverless.cli.log(`Certificate has been validated before`);
+        return;
+      }
+      if (certificate.Certificate.Status !== "PENDING_VALIDATION") {
+        return;
+      }
 
-    const validations = certificate.Certificate.DomainValidationOptions.filter(
-      ({ ValidationStatus, ValidationMethod }) =>
-        ValidationStatus === "PENDING_VALIDATION" && ValidationMethod === "DNS",
-    );
+      validations = certificate.Certificate.DomainValidationOptions.filter(
+        ({ ValidationStatus, ValidationMethod, ResourceRecord }) =>
+          ValidationStatus === "PENDING_VALIDATION" && ValidationMethod === "DNS" && ResourceRecord !== undefined,
+      );
+      if (validations.length !== this.domains.length) {
+        this.serverless.cli.log(`Validation resource records not found!`);
+        tries++;
+      }
+    } while (validations.length !== this.domains.length && tries < 31);
+
+    if (validations.length !== this.domains.length) {
+      throw new Error(`Timed out waiting for validation resource records to be assigned!`);
+    }
 
     const credentials = this.serverless.providers.aws.getCredentials();
     this.route53 = new this.serverless.providers.aws.sdk.Route53(credentials);
