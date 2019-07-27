@@ -27,6 +27,7 @@ custom:
       - "server.example.com"
       - "doggo.example.com"
     cloudFront: CloudFrontDistribution
+    retries: 15
     minimumProtocolVersion: TLSv1.2_2018
 ```
 
@@ -37,3 +38,5 @@ Where `domainNames` are domains for which ssl certificate should be generated, `
 _To use an ACM Certificate with CloudFront, you must request the certificate in the US East (N. Virginia) region. ACM Certificates in this region that are associated with a CloudFront distribution are distributed to all the geographic locations configured for that distribution._
 
 _This plugin will wait up to 15 minutes for certificate to be issued. If the state won't be issued within 15 minutes, it will fail._
+15
+_Additionaly you can specify number of retries by providing retries option. This number is used when checking if certificate is issued (1 retry == 1 minute), or when waiting for route record to be created (1 retry == 2 seconds)._

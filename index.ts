@@ -55,7 +55,13 @@ class ServerlessCloudfrontDistributionCertificate {
       await this.checkAndCreateRoute53Entry();
     }
     this.modifyCloudformation();
+    this.validationChecks =
+      this.serverless.service.custom.cfdDomain.retries || 15;
     await this.waitForCertificateToBecomeValid();
+  }
+
+  private delay(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private async waitForCertificateToBecomeValid() {
@@ -69,8 +75,7 @@ class ServerlessCloudfrontDistributionCertificate {
       this.validationChecks > 0
     ) {
       this.validationChecks -= 1;
-      const wait = new Promise((r) => setTimeout(r, 60000));
-      await wait.then(this.waitForCertificateToBecomeValid);
+      await this.delay(60000).then(this.waitForCertificateToBecomeValid);
     } else if (cert.Certificate.Status === "ISSUED") {
       this.serverless.cli.log(`Certificate is valid`);
     } else {
@@ -79,22 +84,41 @@ class ServerlessCloudfrontDistributionCertificate {
   }
 
   private async checkAndCreateRoute53Entry() {
-    const certificate = await this.acm
-      .describeCertificate({ CertificateArn: this.cerArn })
-      .promise();
+    let validations = [];
+    const retries = this.serverless.service.custom.cfdDomain.retries || 31;
+    let tries = 0;
+    do {
+      await this.delay(2000);
+      this.serverless.cli.log(`Looking for validation resource records...`);
+      const certificate = await this.acm
+        .describeCertificate({ CertificateArn: this.cerArn })
+        .promise();
 
-    if (certificate.Certificate.Status === "ISSUED") {
-      this.serverless.cli.log(`Certificate has been validated before`);
-      return;
-    }
-    if (certificate.Certificate.Status !== "PENDING_VALIDATION") {
-      return;
-    }
+      if (certificate.Certificate.Status === "ISSUED") {
+        this.serverless.cli.log(`Certificate has been validated before`);
+        return;
+      }
+      if (certificate.Certificate.Status !== "PENDING_VALIDATION") {
+        return;
+      }
 
-    const validations = certificate.Certificate.DomainValidationOptions.filter(
-      ({ ValidationStatus, ValidationMethod }) =>
-        ValidationStatus === "PENDING_VALIDATION" && ValidationMethod === "DNS",
-    );
+      validations = certificate.Certificate.DomainValidationOptions.filter(
+        ({ ValidationStatus, ValidationMethod, ResourceRecord }) =>
+          ValidationStatus === "PENDING_VALIDATION" &&
+          ValidationMethod === "DNS" &&
+          ResourceRecord !== undefined,
+      );
+      if (validations.length !== this.domains.length) {
+        this.serverless.cli.log(`Validation resource records not found!`);
+        tries++;
+      }
+    } while (validations.length !== this.domains.length && tries < retries);
+
+    if (validations.length !== this.domains.length) {
+      throw new Error(
+        `Timed out waiting for validation resource records to be assigned!`,
+      );
+    }
 
     const credentials = this.serverless.providers.aws.getCredentials();
     this.route53 = new this.serverless.providers.aws.sdk.Route53(credentials);
