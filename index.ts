@@ -53,7 +53,13 @@ class ServerlessCloudfrontDistributionCertificate {
       await this.checkAndCreateRoute53Entry();
     }
     this.modifyCloudformation();
+    this.validationChecks =
+      this.serverless.service.custom.cfdDomain.retries || 15;
     await this.waitForCertificateToBecomeValid();
+  }
+
+  private delay(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private async waitForCertificateToBecomeValid() {
@@ -67,8 +73,7 @@ class ServerlessCloudfrontDistributionCertificate {
       this.validationChecks > 0
     ) {
       this.validationChecks -= 1;
-      const wait = new Promise((r) => setTimeout(r, 60000));
-      await wait.then(this.waitForCertificateToBecomeValid);
+      await this.delay(60000).then(this.waitForCertificateToBecomeValid);
     } else if (cert.Certificate.Status === "ISSUED") {
       this.serverless.cli.log(`Certificate is valid`);
     } else {
@@ -76,12 +81,9 @@ class ServerlessCloudfrontDistributionCertificate {
     }
   }
 
-  private delay(ms: number) {
-      return new Promise( (resolve) => setTimeout(resolve, ms) );
-  }
-
   private async checkAndCreateRoute53Entry() {
     let validations = [];
+    const retries = this.serverless.service.custom.cfdDomain.retries || 31;
     let tries = 0;
     do {
       await this.delay(2000);
@@ -100,16 +102,20 @@ class ServerlessCloudfrontDistributionCertificate {
 
       validations = certificate.Certificate.DomainValidationOptions.filter(
         ({ ValidationStatus, ValidationMethod, ResourceRecord }) =>
-          ValidationStatus === "PENDING_VALIDATION" && ValidationMethod === "DNS" && ResourceRecord !== undefined,
+          ValidationStatus === "PENDING_VALIDATION" &&
+          ValidationMethod === "DNS" &&
+          ResourceRecord !== undefined,
       );
       if (validations.length !== this.domains.length) {
         this.serverless.cli.log(`Validation resource records not found!`);
         tries++;
       }
-    } while (validations.length !== this.domains.length && tries < 31);
+    } while (validations.length !== this.domains.length && tries < retries);
 
     if (validations.length !== this.domains.length) {
-      throw new Error(`Timed out waiting for validation resource records to be assigned!`);
+      throw new Error(
+        `Timed out waiting for validation resource records to be assigned!`,
+      );
     }
 
     const credentials = this.serverless.providers.aws.getCredentials();
