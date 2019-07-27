@@ -18,6 +18,7 @@ export interface ServerlessInstance {
         domainName: string;
         domainNames: string[];
         cloudFront: string;
+        minimumProtocolVersion: string;
       };
     };
   };

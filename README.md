@@ -27,9 +27,10 @@ custom:
       - "server.example.com"
       - "doggo.example.com"
     cloudFront: CloudFrontDistribution
+    minimumProtocolVersion: TLSv1.2_2018
 ```
 
-Where `domainNames` are domains for which ssl certificate should be generated and `cloudFront` is the logical name of your CloudFront distribution.
+Where `domainNames` are domains for which ssl certificate should be generated, `cloudFront` is the logical name of your CloudFront distribution, and `minimumProtocolVersion` is the ViewerCertificate's [MinimumProtocolVersion](https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_ViewerCertificate.html#cloudfront-Type-ViewerCertificate-MinimumProtocolVersion) setting (optional).
 
 ## Note
 

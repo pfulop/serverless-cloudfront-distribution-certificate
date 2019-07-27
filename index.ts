@@ -13,6 +13,7 @@ class ServerlessCloudfrontDistributionCertificate {
   private options: ServerlessOptions;
   private domains: string[];
   private cerArn: Arn;
+  private minProtocolVersion: string;
   private acm: aws.ACM;
   private route53: aws.Route53;
   private cloudFront: string;
@@ -44,6 +45,7 @@ class ServerlessCloudfrontDistributionCertificate {
     }
 
     this.cloudFront = this.serverless.service.custom.cfdDomain.cloudFront;
+    this.minProtocolVersion = this.serverless.service.custom.cfdDomain.minimumProtocolVersion;
 
     await this.createCert();
 
@@ -245,6 +247,13 @@ class ServerlessCloudfrontDistributionCertificate {
       AcmCertificateArn: this.cerArn,
       SslSupportMethod: "sni-only",
     };
+
+    if (this.minProtocolVersion) {
+      template.Resources[
+        this.cloudFront
+      ].Properties.DistributionConfig
+        .ViewerCertificate.MinimumProtocolVersion = this.minProtocolVersion;
+    }
   }
 }
 
