@@ -166,21 +166,24 @@ class ServerlessCloudfrontDistributionCertificate {
     return await new Promise<Array<HostedZonesResult>>((success, failure) => {
       const zones = [];
       const getZones = (marker: string) => {
-        this.route53.listHostedZones({
-          Marker: marker === "" ? undefined : marker,
-          MaxItems: "100",
-        }, (err, data) => {
-          if (err) {
-            return failure(err);
-          }
-          data.HostedZones.forEach((zone) => {
-            zones.push(zone);
-          })
-          if (data.IsTruncated) {
-            return getZones(data.Marker);
-          }
-          success(zones);
-        });
+        // prevent Throttling: Rate exceeded
+        setTimeout(() => {
+          this.route53.listHostedZones({
+            Marker: marker === "" ? undefined : marker,
+            MaxItems: "100",
+          }, (err, data) => {
+            if (err) {
+              return failure(err);
+            }
+            data.HostedZones.forEach((zone) => {
+              zones.push(zone);
+            })
+            if (data.IsTruncated) {
+              return getZones(data.Marker);
+            }
+            success(zones);
+          });
+        }, 1000);
       };
       getZones("");
     });
