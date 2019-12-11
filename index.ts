@@ -159,15 +159,37 @@ class ServerlessCloudfrontDistributionCertificate {
     });
     await Promise.all(validationPromises);
   }
-
+  async private getHostedZones() {
+    return await new Promise((success, failure) => {
+      const zones = [];
+      getZones(marker) {
+        this.route53.listHostedZones({
+          Marker: marker,
+          MaxItems: 100,
+        }, (err, data) => {
+          if (err) {
+            return failure(new Error(err));
+          }
+          data.HostedZones.forEach((zone) => {
+            zones.push(zone);
+          })
+          if (data.IsTruncated) {
+            return getZones(data.Marker);
+          }
+          success(zones);
+        });
+      }
+      getZones();
+    });
+  }
   private async findHostedZoneId(domain: string) {
     this.serverless.cli.log(`Getting hosted zone id`);
-    const zones = await this.route53.listHostedZones({}).promise();
+    const zones = await getHostedZones();
     const domainNameReverse = domain
       .replace(/\.$/, "")
       .split(".")
       .reverse();
-    const targetHostedZone = zones.HostedZones.filter((hostedZone) => {
+    const targetHostedZone = zones.filter((hostedZone) => {
       const zoneName = hostedZone.Name.replace(/\.$/, "");
       const hostedZoneNameReverse = zoneName.split(".").reverse();
 
