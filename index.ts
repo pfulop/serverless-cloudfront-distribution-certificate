@@ -7,7 +7,10 @@ import { ServerlessOptions } from "./ServerlessOptions";
 interface IHooks {
   "aws:package:finalize:mergeCustomProviderResources": () => void;
 }
-
+type HostedZonesResult = {
+  Name: string,
+  Id: string,
+}
 class ServerlessCloudfrontDistributionCertificate {
   private serverless: ServerlessInstance;
   private options: ServerlessOptions;
@@ -159,12 +162,12 @@ class ServerlessCloudfrontDistributionCertificate {
     });
     await Promise.all(validationPromises);
   }
-  async private getHostedZones() {
-    return await new Promise((success, failure) => {
+  private async getHostedZones() {
+    return await new Promise<Array<HostedZonesResult>>((success, failure) => {
       const zones = [];
-      getZones(marker) {
+      function getZones(marker: string) {
         this.route53.listHostedZones({
-          Marker: marker,
+          Marker: marker === "" ? undefined : marker,
           MaxItems: 100,
         }, (err, data) => {
           if (err) {
@@ -179,12 +182,12 @@ class ServerlessCloudfrontDistributionCertificate {
           success(zones);
         });
       }
-      getZones();
+      getZones("");
     });
   }
   private async findHostedZoneId(domain: string) {
     this.serverless.cli.log(`Getting hosted zone id`);
-    const zones = await getHostedZones();
+    const zones = await this.getHostedZones();
     const domainNameReverse = domain
       .replace(/\.$/, "")
       .split(".")
