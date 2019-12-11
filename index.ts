@@ -168,6 +168,7 @@ class ServerlessCloudfrontDistributionCertificate {
       const getZones = (marker: string) => {
         // prevent Throttling: Rate exceeded
         setTimeout(() => {
+          this.serverless.cli.log(`Getting zone page:marker`, marker);
           this.route53.listHostedZones({
             Marker: marker === "" ? undefined : marker,
             MaxItems: "100",
