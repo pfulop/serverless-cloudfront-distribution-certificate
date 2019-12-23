@@ -183,7 +183,7 @@ class ServerlessCloudfrontDistributionCertificate {
             }
             success(zones);
           });
-        }, 1000);
+        }, 250);
       };
       getZones("");
     });
