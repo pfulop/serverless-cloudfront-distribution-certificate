@@ -7,7 +7,10 @@ import { ServerlessOptions } from "./ServerlessOptions";
 interface IHooks {
   "aws:package:finalize:mergeCustomProviderResources": () => void;
 }
-
+type HostedZonesResult = {
+  Name: string,
+  Id: string,
+}
 class ServerlessCloudfrontDistributionCertificate {
   private serverless: ServerlessInstance;
   private options: ServerlessOptions;
@@ -159,15 +162,40 @@ class ServerlessCloudfrontDistributionCertificate {
     });
     await Promise.all(validationPromises);
   }
-
+  private async getHostedZones() {
+    return await new Promise<Array<HostedZonesResult>>((success, failure) => {
+      const zones = [];
+      const getZones = (marker: string) => {
+        // prevent Throttling: Rate exceeded
+        setTimeout(() => {
+          this.route53.listHostedZones({
+            Marker: marker === "" ? undefined : marker,
+            MaxItems: "100",
+          }, (err, data) => {
+            if (err) {
+              return failure(err);
+            }
+            data.HostedZones.forEach((zone) => {
+              zones.push(zone);
+            })
+            if (data.IsTruncated) {
+              return getZones(data.NextMarker);
+            }
+            success(zones);
+          });
+        }, 250);
+      };
+      getZones("");
+    });
+  }
   private async findHostedZoneId(domain: string) {
     this.serverless.cli.log(`Getting hosted zone id`);
-    const zones = await this.route53.listHostedZones({}).promise();
+    const zones = await this.getHostedZones();
     const domainNameReverse = domain
       .replace(/\.$/, "")
       .split(".")
       .reverse();
-    const targetHostedZone = zones.HostedZones.filter((hostedZone) => {
+    const targetHostedZone = zones.filter((hostedZone) => {
       const zoneName = hostedZone.Name.replace(/\.$/, "");
       const hostedZoneNameReverse = zoneName.split(".").reverse();
 
