@@ -7,10 +7,11 @@ import { ServerlessOptions } from "./ServerlessOptions";
 interface IHooks {
   "aws:package:finalize:mergeCustomProviderResources": () => void;
 }
-type HostedZonesResult = {
-  Name: string,
-  Id: string,
-};
+interface IHostedZonesResult {
+  Name: string;
+  Id: string;
+}
+
 class ServerlessCloudfrontDistributionCertificate {
   private serverless: ServerlessInstance;
   private options: ServerlessOptions;
@@ -169,7 +170,7 @@ class ServerlessCloudfrontDistributionCertificate {
     await Promise.all(validationPromises);
   }
   private async getHostedZones() {
-    return await new Promise<Array<HostedZonesResult>>((success, failure) => {
+    return await new Promise<IHostedZonesResult[]>((success, failure) => {
       const zones = [];
       const getZones = (marker: string) => {
         // prevent Throttling: Rate exceeded
@@ -314,7 +315,7 @@ class ServerlessCloudfrontDistributionCertificate {
     }
   }
 
-  private evaluateEnabled(enabled?: string) {
+  private evaluateEnabled(enabled?: string | boolean) {
     if (enabled === undefined) {
         return true;
     }
