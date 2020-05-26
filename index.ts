@@ -10,7 +10,7 @@ interface IHooks {
 type HostedZonesResult = {
   Name: string,
   Id: string,
-}
+};
 class ServerlessCloudfrontDistributionCertificate {
   private serverless: ServerlessInstance;
   private options: ServerlessOptions;
@@ -40,6 +40,12 @@ class ServerlessCloudfrontDistributionCertificate {
   }
 
   private async assignCert() {
+    const enabled = this.evaluateEnabled(this.serverless.service.custom.cfdDomain.enabled);
+    if (!enabled) {
+      this.serverless.cli.log("Skipping serverless-cloudfront-distribution-certificate as enabled set to false");
+      return;
+    }
+
     if (Array.isArray(this.serverless.service.custom.cfdDomain.domainNames)) {
       this.serverless.cli.log(`Multiple domains specified`);
       this.domains = this.serverless.service.custom.cfdDomain.domainNames;
@@ -177,7 +183,7 @@ class ServerlessCloudfrontDistributionCertificate {
             }
             data.HostedZones.forEach((zone) => {
               zones.push(zone);
-            })
+            });
             if (data.IsTruncated) {
               return getZones(data.NextMarker);
             }
@@ -306,6 +312,20 @@ class ServerlessCloudfrontDistributionCertificate {
       ].Properties.DistributionConfig
         .ViewerCertificate.MinimumProtocolVersion = this.minProtocolVersion;
     }
+  }
+
+  private evaluateEnabled(enabled?: string) {
+    if (enabled === undefined) {
+        return true;
+    }
+    if (typeof enabled === "boolean") {
+        return enabled;
+    } else if (typeof enabled === "string" && enabled === "true") {
+        return true;
+    } else if (typeof enabled === "string" && enabled === "false") {
+        return false;
+    }
+    throw new Error(`serverless-cloudfront-distribution-certificate: Ambiguous enablement boolean: "${enabled}"`);
   }
 }
 

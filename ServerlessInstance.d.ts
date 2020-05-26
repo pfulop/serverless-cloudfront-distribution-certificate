@@ -20,6 +20,7 @@ export interface ServerlessInstance {
         cloudFront: string;
         retries: number;
         minimumProtocolVersion: string;
+        enabled: boolean;
       };
     };
   };
