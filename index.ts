@@ -314,7 +314,7 @@ class ServerlessCloudfrontDistributionCertificate {
     }
   }
 
-  private evaluateEnabled(enabled: any): boolean {
+  private evaluateEnabled(enabled?: string) {
     if (enabled === undefined) {
         return true;
     }
