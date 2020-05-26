@@ -29,9 +29,11 @@ custom:
     cloudFront: CloudFrontDistribution
     retries: 15
     minimumProtocolVersion: TLSv1.2_2018
+    enabled: true
 ```
 
 Where `domainNames` are domains for which ssl certificate should be generated, `cloudFront` is the logical name of your CloudFront distribution, and `minimumProtocolVersion` is the ViewerCertificate's [MinimumProtocolVersion](https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_ViewerCertificate.html#cloudfront-Type-ViewerCertificate-MinimumProtocolVersion) setting (optional).
+You can specify `enabled` (by default true) to add custom rules for when to use this plugin.
 
 ## Note
 
