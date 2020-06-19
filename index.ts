@@ -313,6 +313,39 @@ class ServerlessCloudfrontDistributionCertificate {
       ].Properties.DistributionConfig
         .ViewerCertificate.MinimumProtocolVersion = this.minProtocolVersion;
     }
+
+    // issue-13
+    // Add aliases to the cf distribution
+    this.domains.forEach(function (domainName){
+      this.serverless.cli.log(
+          `Checking alias for : ${domainName}`,
+        );
+      if (template.Resources[this.cloudFront].Properties.DistributionConfig.Aliases)
+      {
+        if(!template.Resources[this.cloudFront].Properties.DistributionConfig.Aliases.includes(domainName))
+        {
+        template.Resources[
+          this.cloudFront
+        ].Properties.DistributionConfig.Aliases.push(domainName);
+        this.serverless.cli.log(
+          `Added alias for : ${domainName}`,
+        );        
+      }
+        else{
+          this.serverless.cli.log(
+              `Alias already exists`,
+            );              
+          }
+      }
+      else
+      {
+        template.Resources[this.cloudFront].Properties.DistributionConfig.Aliases = [domainName];
+        this.serverless.cli.log(
+          `Added alias for : ${domainName}`,
+        );        
+      }
+    }, this);
+  //end issue-13 
   }
 
   private evaluateEnabled(enabled?: string | boolean) {
